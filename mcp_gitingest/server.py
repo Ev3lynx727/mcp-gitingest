@@ -1,14 +1,15 @@
 import logging
 from typing import List, Optional
 from fastmcp import FastMCP
-from gitingest import ingest
+from mcp_gitingest.services.ingestion_service import IngestionService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("mcp-gitingest")
 
-# Create FastMCP server
+# Initialize server and services
 mcp = FastMCP("GitIngest")
+ingestion_service = IngestionService()
 
 @mcp.tool()
 def ingest_repo(
@@ -28,23 +29,15 @@ def ingest_repo(
         exclude_patterns: A list of patterns to exclude (e.g., ["node_modules/*", "*.log"]).
         max_size: Maximum file size in bytes to process (optional).
     """
-    logger.info(f"Ingesting repository: {url} (branch: {branch})")
     try:
-        # Construct parameters for gitingest.ingest
-        # Note: ingest returns (summary, tree, content)
-        summary, tree, content = ingest(
-            url,
+        return ingestion_service.ingest_repository(
+            url=url,
             branch=branch,
-            include_patterns=",".join(include_patterns) if include_patterns else None,
-            exclude_patterns=",".join(exclude_patterns) if exclude_patterns else None,
-            max_file_size=max_size if max_size else 10 * 1024 * 1024, # Default to 10MB if not specified
+            include_patterns=include_patterns,
+            exclude_patterns=exclude_patterns,
+            max_size=max_size
         )
-        
-        # Combine the results into a single formatted string as recommended by gitingest
-        full_context = f"{summary}\n\n{tree}\n\n{content}"
-        return full_context
     except Exception as e:
-        logger.error(f"Error ingesting repository {url}: {str(e)}")
         return f"Error: {str(e)}"
 
 def main():
