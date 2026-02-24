@@ -10,8 +10,8 @@ This codebase carries a **quiet, focused energy**. It is small, deliberate, and 
 
 ```
 vibe score: 85/100
-modules: 2 (115 LOC)
-coupling: minimal
+modules: 4 (145 LOC)
+coupling: minimal (server → service → gitingest lib)
 ghosts: none
 ```
 
@@ -19,8 +19,11 @@ ghosts: none
 
 | Module | Lines | Role | Stability |
 |--------|-------|------|-----------|
-| `gitingest_server.py` | ~80 | Core server | I = 0.0 (stable) |
-| `tests/test_server.py` | ~35 | Test suite | I = 1.0 (leaf) |
+| `ingest_server/server.py` | ~45 | MCP server, tool registration | I = 0.2 (stable) |
+| `ingest_server/services/ingestion_service.py` | ~50 | Business logic, ingestion | I = 0.3 (stable) |
+| `ingest_server/models/ingestion.py` | ~9 | Pydantic schemas | I = 0.0 (stable) |
+| `tests/test_server.py` | ~34 | Server tests | I = 1.0 (leaf) |
+| `tests/test_service.py` | ~38 | Service tests | I = 1.0 (leaf) |
 
 There are no god modules. No circular dependencies. No architectural hauntings.
 
@@ -29,12 +32,20 @@ There are no god modules. No circular dependencies. No architectural hauntings.
 ```
 tests.test_server ──┐
                     ▼
-          gitingest_server (stable utility layer)
+        ingest_server.server (transport)
+                    │
+                    ▼
+        IngestionService (business logic)
+                    │
+                    ▼
+            gitingest library (core)
 ```
 
-`gitingest_server` is a **stable utility** — it exports a single tool and imports nothing from the project itself. It stands alone, ready to be consumed. This is ideal.
+`ingest_server.server` is a **stable transport layer** — it handles MCP protocol and delegates to the service.
 
-`tests.test_server` is a **leaf node** — it reaches outward but is not depended upon. In a healthy system, leaves should be numerous and this one is perfectly placed.
+`IngestionService` is a **business logic layer** — it orchestrates ingestion, handles formatting, and manages defaults.
+
+`ingest_server.models` contains **data schemas** — Pydantic models for structured requests.
 
 ---
 
@@ -52,6 +63,7 @@ Instead of juggling git commands and file parsing, an agent simply says: *"Inges
 - **Selective Ingestion** — glob patterns to include/exclude files
 - **Branch Support** — target any branch or tag
 - **Token Efficiency** — summary includes token estimates
+- **Configurable Limits** — default max file size configurable via service
 
 ---
 
@@ -84,7 +96,7 @@ Built with **FastMCP** (Python) for robust MCP communication.
 ```mermaid
 graph LR
     IDE[AI Agentic IDE] -- Tool Call (ingest_repo) --> MCP[mcp-gitingest Server]
-    MCP -- Python API --> GI[gitingest Library]
+    MCP -- IngestionService --> GI[gitingest Library]
     GI -- Clone/Read --> Git[GitHub/Git Repository]
     Git -- Raw Files --> GI
     GI -- Structured Digest --> MCP
@@ -93,9 +105,10 @@ graph LR
 
 **Layers:**
 1. **Transport:** FastMCP (MCP protocol)
-2. **Server:** `gitingest_server.py` (tool orchestration)
-3. **Core:** `gitingest` library (ingestion logic)
-4. **Source:** Git repository (input)
+2. **Server:** `ingest_server/server.py` (tool registration)
+3. **Service:** `ingest_server/services/ingestion_service.py` (business logic)
+4. **Core:** `gitingest` library (ingestion logic)
+5. **Source:** Git repository (input)
 
 ---
 
@@ -110,7 +123,7 @@ version = "0.1.0"
 dependencies = ["fastmcp>=3.0.2", "gitingest>=0.3.1"]
 
 [project.scripts]
-mcp-gitingest = "gitingest_server:main"
+mcp-gitingest = "ingest_server.server:main"
 ```
 
 Entry point: `mcp-gitingest` runs the server directly.
@@ -126,14 +139,14 @@ Entry point: `mcp-gitingest` runs the server directly.
 ### From Source
 
 ```bash
-cd /home/ev3lynx/Project/local-mcp-server/mcp-gitingest
+cd mcp-gitingest
 uv sync
 ```
 
 Run the server:
 
 ```bash
-uv run python gitingest_server.py
+uv run python -m ingest_server.server
 ```
 
 Or use the installed entry point (after `uv pip install -e .`):
@@ -162,10 +175,11 @@ Add to your MCP configuration (Claude Desktop, Cursor, etc.):
       "command": "uv",
       "args": [
         "--directory",
-        "/home/ev3lynx/Project/local-mcp-server/mcp-gitingest",
+        "/path/to/mcp-gitingest",
         "run",
         "python",
-        "gitingest_server.py"
+        "-m",
+        "ingest_server.server"
       ]
     }
   }
@@ -181,13 +195,13 @@ Restart your IDE. The `ingest_repo` tool will appear.
 ### Run in dev mode
 
 ```bash
-uv run python gitingest_server.py
+uv run python -m ingest_server.server
 ```
 
 ### Test with MCP Inspector
 
 ```bash
-npx @modelcontextprotocol/inspector uv run python gitingest_server.py
+npx @modelcontextprotocol/inspector uv run python -m ingest_server.server
 ```
 
 ### Run unit tests
@@ -198,28 +212,27 @@ uv run pytest tests/
 
 ---
 
-## 🔮 Architectural Roadmap
+## 🔮 Architectural Notes
 
-The current single-file design is **intentionally minimal**. It will remain this way until complexity grows.
-
-### When to Split
-
-If `gitingest_server.py` exceeds ~200 lines or you add a second tool, refactor into:
+The codebase follows a **layered service architecture**:
 
 ```
-mcp_gitingest/
-├── server.py      # FastMCP setup, tool registration
-├── ingest.py      # Core ingestion logic
-├── models.py      # Pydantic schemas (if needed)
-└── exceptions.py  # Custom error types
+ingest_server/
+├── __init__.py
+├── server.py          # FastMCP setup, tool registration
+├── models/
+│   ├── __init__.py
+│   └── ingestion.py    # Pydantic schemas
+└── services/
+    ├── __init__.py
+    └── ingestion_service.py  # Business logic
 ```
 
-**Trigger conditions:**
-- More than one tool exposed
-- Business logic beyond simple parameter mapping
-- Need for internal caching or state
-
-Until then: keep it small. Keep it quiet.
+**Design decisions:**
+- Service layer isolates business logic from MCP transport
+- Pydantic models for request validation (extensible)
+- Configurable defaults via service constructor
+- Proper error re-raising for caller handling
 
 ---
 
@@ -231,7 +244,7 @@ Until then: keep it small. Keep it quiet.
 | Coupling | Minimal | Minimal |
 | Test Coverage | 100% | >90% |
 | Cyclomatic Complexity | ~4 | <10 |
-| Lines per Function | ~30 | <50 |
+| Lines per Function | ~25 | <50 |
 
 All green. No action required.
 
@@ -239,7 +252,7 @@ All green. No action required.
 
 ## 📄 License
 
-(Add your license here if applicable)
+MIT License — see LICENSE file.
 
 ---
 
