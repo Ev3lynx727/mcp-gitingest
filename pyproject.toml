@@ -6,7 +6,7 @@ authors = [
     { name = "ev3lynx", email = "user@example.com" }
 ]
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 dependencies = [
     "fastmcp>=3.0.2",
     "gitingest>=0.3.1",
