@@ -1,7 +1,7 @@
 import logging
 from typing import List, Optional
 from fastmcp import FastMCP
-from mcp_gitingest.services.ingestion_service import IngestionService
+from ingest_server.services.ingestion_service import IngestionService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -10,6 +10,7 @@ logger = logging.getLogger("mcp-gitingest")
 # Initialize server and services
 mcp = FastMCP("GitIngest")
 ingestion_service = IngestionService()
+
 
 @mcp.tool()
 def ingest_repo(
@@ -35,13 +36,15 @@ def ingest_repo(
             branch=branch,
             include_patterns=include_patterns,
             exclude_patterns=exclude_patterns,
-            max_size=max_size
+            max_size=max_size,
         )
     except Exception as e:
         return f"Error: {str(e)}"
 
+
 def main():
     mcp.run()
+
 
 if __name__ == "__main__":
     main()
