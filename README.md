@@ -162,11 +162,30 @@ pip install dist/mcp_gitingest-0.1.0-py3-none-any.whl
 mcp-gitingest
 ```
 
+### With uvx (recommended)
+
+```bash
+uvx mcp-gitingest
+```
+
 ---
 
 ## 🖥️ IDE Integration
 
 Add to your MCP configuration (Claude Desktop, Cursor, etc.):
+
+```json
+{
+  "mcpServers": {
+    "gitingest": {
+      "command": "uvx",
+      "args": ["mcp-gitingest"]
+    }
+  }
+}
+```
+
+Or with local development (from source):
 
 ```json
 {
