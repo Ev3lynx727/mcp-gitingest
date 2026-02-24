@@ -11,21 +11,27 @@ This document is designed to guide AI Agents (LLMs/Coding Assistants) in install
 If the user asks you to install this server, guide them with these steps:
 
 1. **Prerequisite**: Ensure `uv` is installed.
-2. **Setup**: Clone the repo and install dependencies:
+2. **Quick Install (recommended)**:
+
+   ```bash
+   uvx mcp-gitingest
+   ```
+
+3. **Or from source**:
 
    ```bash
    cd /home/ev3lynx/Project/local-mcp-server/mcp-gitingest
-   uv build
-   pip install dist/*.whl
+   uv sync
    ```
 
-3. **Configuration**: Add the server to the IDE's MCP config:
+4. **Configuration**: Add the server to the IDE's MCP config:
 
    ```json
    {
      "mcpServers": {
        "gitingest": {
-         "command": "mcp-gitingest"
+         "command": "uvx",
+         "args": ["mcp-gitingest"]
        }
      }
    }
